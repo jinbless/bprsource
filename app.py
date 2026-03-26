@@ -110,11 +110,13 @@ def page_search():
     with col2:
         search_mode = st.radio("검색 모드", ["키워드", "LLM"], horizontal=True)
 
-    # LLM 모드일 때 API 키 입력
+    # LLM 모드일 때 API 키: Secrets → 환경변수 → 직접 입력 순으로 탐색
     api_key = None
     if search_mode == "LLM":
-        api_key = st.text_input("OpenAI API Key", type="password",
-                                help="gpt-4.1-nano를 사용합니다")
+        api_key = st.secrets.get("OPENAI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
+        if not api_key:
+            api_key = st.text_input("OpenAI API Key", type="password",
+                                    help="gpt-4.1-nano를 사용합니다. Streamlit Secrets에 OPENAI_API_KEY를 설정하면 자동 적용됩니다.")
 
     # 검색 실행
     if query:
