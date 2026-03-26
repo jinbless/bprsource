@@ -112,36 +112,48 @@ def parse_code_info(body: str) -> dict:
     }
     rows = parse_table_rows(body)
     # 첫 번째 테이블 (회계/기금 코드) 찾기
+    code_row = None
     for i, row in enumerate(rows):
         if len(row) >= 7 and any(k in str(row) for k in ['회계', '기금', '소관']):
-            # 헤더 행 찾기
             header_row = row
-            # 다음 행들에서 코드/명칭 찾기
+            header_text = str(header_row[1]) if len(header_row) > 1 else ''
             for j in range(i + 1, min(i + 3, len(rows))):
                 r = rows[j]
                 if len(r) >= 7:
                     if '코드' in str(r[0]):
                         code_row = r
-                        # 회계/기금 구분
                         val = code_row[1] if len(code_row) > 1 else ''
+                        # 회계/기금 구분
                         if '<br>' in val:
                             parts = val.split('<br>')
                             result['회계구분'] = '기금' if '기금' in val else '회계'
                             result['회계_기금명'] = parts[-1].strip() if len(parts) > 1 else parts[0].strip()
-                        else:
-                            result['회계구분'] = '회계' if '회계' in val or '일반' in val else val
+                        elif '기금' in val or '기금' in header_text:
+                            result['회계구분'] = '기금'
+                            result['회계_기금명'] = val.strip() if not val.isdigit() else header_text.strip()
+                        elif '회계' in val or '일반' in val:
+                            result['회계구분'] = '회계'
                             result['회계_기금명'] = val.strip()
-                        # 소관
+                        else:
+                            # 숫자 코드만 있는 경우, 기본값 설정 후 명칭 행에서 보정
+                            result['회계구분'] = '회계'
+                            result['회계_기금명'] = val.strip()
+                        # 소관, 실국, 계정, 분야, 부문
                         result['소관'] = code_row[2].split('<br>')[-1].strip() if len(code_row) > 2 else None
-                        # 실국/기관
                         result['실국_기관'] = code_row[3].split('<br>')[-1].strip() if len(code_row) > 3 else None
-                        # 계정
                         result['계정'] = code_row[4].strip() if len(code_row) > 4 else None
-                        # 분야
                         result['분야코드'] = code_row[5].strip() if len(code_row) > 5 else None
-                        # 부문
                         result['부문코드'] = code_row[6].strip() if len(code_row) > 6 else None
                     elif '명칭' in str(r[0]):
+                        # 명칭 행에서 회계구분 보정 + 분야명/부문명 추출
+                        name_val = r[1].strip() if len(r) > 1 else ''
+                        if '기금' in name_val:
+                            result['회계구분'] = '기금'
+                            result['회계_기금명'] = name_val
+                        elif ('회계' in name_val or '일반' in name_val):
+                            result['회계구분'] = '회계'
+                            if result['회계_기금명'] and str(result['회계_기금명']).isdigit():
+                                result['회계_기금명'] = name_val
                         if len(r) > 5:
                             result['분야명'] = r[5].strip()
                         if len(r) > 6:
